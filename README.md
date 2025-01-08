@@ -23,8 +23,8 @@ This project demonstrates advanced implementation patterns for managing sensitiv
 
 ```
 k8s-secret/
-├── yaml/                          # Kubernetes configuration files
-│   ├── basic-secret.yaml         # Base secret configuration
+├── yaml/                         # Kubernetes configuration files
+│   ├── secret-config.yaml        # Base secret configuration
 │   ├── pod-with-env.yaml         # Pod with environment variables
 │   ├── pod-with-volume.yaml      # Pod with volume mounts
 │   ├── deployment.yaml           # Full deployment example
@@ -95,7 +95,7 @@ cd k8s-secret
 
 2. Create the basic secret:
 ```bash
-kubectl apply -f yaml/basic-secret.yaml
+kubectl apply -f yaml/secret-config.yaml
 ```
 
 3. Implement RBAC configuration:
@@ -131,26 +131,48 @@ The project implements a comprehensive RBAC system:
 
 ```mermaid
 graph TD
-    A[Kubernetes Cluster] --> B[Secrets]
-    B --> C[Base64 Encoded Values]
+    A[Kubernetes Cluster] --> B[Secrets<br/>secret-config.yaml]
+    B --> C[Base64 Encoded Values<br/>username, password, host]
     B --> D[Environment Variables<br/>pod-with-env.yaml]
     B --> E[Volume Mounts<br/>pod-with-volume.yaml]
     
-    D --> F[Application Pods]
+    D --> F[Application Pods<br/>deployment.yaml]
     E --> F
     
+    G[RBAC<br/>rbac.yaml] --> B
+    G --> F
+    
     style B fill:#326CE5,stroke:#fff,stroke-width:2px
+    style G fill:#FF6B6B,stroke:#fff,stroke-width:2px
+    
+    classDef configFile fill:#4CAF50,stroke:#fff,stroke-width:1px
+    class C configFile
 ```
 
 This architecture demonstrates the flow of secret management in our Kubernetes implementation:
 
-1. **Kubernetes Cluster**: The foundation of our infrastructure
-2. **Secrets Management Layer**: Handles all secret-related operations
+1. **Kubernetes Cluster**:
+   - Foundation of our infrastructure where all components and workloads run
+   - Houses and manages all the secret configurations and their consumption
+
+2. **Secrets Management Layer** (`secret-config.yaml`):
+   - Central component handling all secret-related operations
+   - Interfaces with both the storage and distribution mechanisms
+   - Controls how secrets are stored and accessed
+   - Managed through RBAC for secure access control
+
 3. **Distribution Methods**:
-   - Encoded Secrets Store: Central storage for base64 encoded secrets
-   - Volume Mounts: File-based secret access
-   - Environment Variables: Direct injection into containers
-4. **Applications**: Consume secrets through these various methods
+   - **Base64 Encoded Values**: Central storage for encoded secrets
+     - username
+     - password
+     - host
+   - **Environment Variables** (`pod-with-env.yaml`): Direct injection into containers
+   - **Volume Mounts** (`pod-with-volume.yaml`): File-based secret access
+
+4. **Application Pods** (`deployment.yaml`):
+   - Consume secrets through environment variables and volume mounts
+   - Access controlled via RBAC policies
+   - Run workloads with secure access to sensitive data
 
 This layered approach ensures:
 - Secure storage and transmission of sensitive data
