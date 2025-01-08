@@ -5,7 +5,8 @@
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
 ![Security](https://img.shields.io/badge/Security-FF0000?style=flat&logo=shield&logoColor=white)
 ![YAML](https://img.shields.io/badge/YAML-CB171E?style=flat&logo=yaml&logoColor=white)
-![Base64](https://img.shields.io/badge/Base64-232F3E?style=flat&logo=data:image/png;base64,&logoColor=white)
+![Base64](https://img.shields.io/badge/Base64-4479A1?style=flat&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0yMCA4aC0yLjgxYy0uNDUtMS4yOS0xLjY2LTIuMjQtMy4xMi0yLjI0LTEuNDcgMC0yLjY4Ljk1LTMuMTIgMi4yNEg4djRoMTJ6Ii8+PC9zdmc+)
+![DevOps](https://img.shields.io/badge/DevOps-1572B6?style=flat&logo=devops&logoColor=white)
 
 ## 📋 Project Overview
 
