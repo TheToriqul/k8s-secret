@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secure-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: secure-app
+  template:
+    metadata:
+      labels:
+        app: secure-app
+    spec:
+      containers:
+      - name: secure-app
+        image: nginx
+        env:
+        - name: DATABASE_HOST
+          valueFrom:
+            secretKeyRef:
+              name: my-db-secret
+              key: DB_Host
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: my-db-secret
+              key: DB_User
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: my-db-secret
+              key: DB_Password
+        volumeMounts:
+        - name: secret-volume
+          mountPath: "/etc/secrets"
+          readOnly: true
+      volumes:
+      - name: secret-volume
+        secret:
+          secretName: my-db-secret
