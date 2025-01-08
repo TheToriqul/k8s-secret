@@ -6,175 +6,294 @@
 
 ## Table of Contents
 - [Core Operations](#core-operations)
+  - [Secret Creation](#secret-creation)
+  - [Secret Management](#secret-management)
+  - [Secret Viewing](#secret-viewing)
 - [Advanced Operations](#advanced-operations)
+  - [Pod Integration](#pod-integration)
+  - [Base64 Operations](#base64-operations)
+  - [Secret Updates](#secret-updates)
+  - [Secret Rotation](#secret-rotation)
 - [Troubleshooting](#troubleshooting)
-- [Production Guidelines](#production-guidelines)
+  - [Common Issues](#common-issues)
+  - [Debugging](#debugging)
+  - [Validation](#validation)
+- [Security](#security)
+  - [RBAC Management](#rbac-management)
+  - [Best Practices](#best-practices)
+  - [Access Control](#access-control)
+- [Production Operations](#production-operations)
+  - [Maintenance](#maintenance)
+  - [Backup](#backup)
+  - [Restoration](#restoration)
+- [Cleanup](#cleanup)
 
 ## Core Operations
 
-### Creating Secrets
+### Secret Creation
 
 ```bash
-# Create a secret from literal values
+# 1. Create from literal values
 kubectl create secret generic db-credentials \
     --from-literal=username=admin \
-    --from-literal=password=secretpassword
+    --from-literal=password=secretpassword \
+    --from-literal=host=db.example.com \
+    --from-literal=port=3306
 
-# Verify secret creation
-kubectl get secret db-credentials
-
-# Create a secret from files
+# 2. Create from files
 kubectl create secret generic tls-certs \
-    --from-file=private.key \
-    --from-file=certificate.crt
+    --from-file=./tls.key \
+    --from-file=./tls.crt \
+    --from-file=./ca.crt
 
-# Create a secret from a configuration file
+# 3. Create from configuration file
 kubectl apply -f secret-config.yaml
+
+# 4. Create Docker registry secret
+kubectl create secret docker-registry regcred \
+    --docker-server=<your-registry-server> \
+    --docker-username=<your-username> \
+    --docker-password=<your-password> \
+    --docker-email=<your-email>
+
+# 5. Create TLS secret
+kubectl create secret tls tls-secret \
+    --cert=path/to/cert/file \
+    --key=path/to/key/file
 ```
 
-### Viewing and Managing Secrets
+### Secret Management
 
 ```bash
-# List all secrets in the current namespace
-kubectl get secrets
+# Export secret to a file
+kubectl get secret db-credentials -o yaml > exported-secret.yaml
 
-# Get detailed information about a secret
+# Edit secret directly
+kubectl edit secret db-credentials
+
+# Patch a secret
+kubectl patch secret db-credentials -p '{"data":{"password":"bmV3cGFzc3dvcmQ="}}'
+
+# Scale deployments using the secret
+kubectl scale deployment secure-app --replicas=0
+kubectl scale deployment secure-app --replicas=3
+
+# Label secrets
+kubectl label secret db-credentials environment=production
+```
+
+### Secret Viewing
+
+```bash
+# List all secrets
+kubectl get secrets --all-namespaces
+
+# Get detailed secret information
 kubectl describe secret db-credentials
 
-# Decode secret values
+# Get specific secret values
 kubectl get secret db-credentials -o jsonpath='{.data.username}' | base64 --decode
 kubectl get secret db-credentials -o jsonpath='{.data.password}' | base64 --decode
 
-# Export secret definition to YAML
-kubectl get secret db-credentials -o yaml > secret-backup.yaml
+# View secret in YAML format
+kubectl get secret db-credentials -o yaml
+
+# List secrets with labels
+kubectl get secrets -l environment=production
 ```
 
 ## Advanced Operations
 
-### Secret Management in Pods
+### Pod Integration
 
 ```bash
-# Create a pod with secrets as environment variables
-kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Pod
-metadata:
-  name: secret-env-pod
-spec:
-  containers:
-  - name: myapp
-    image: nginx
-    env:
-    - name: DB_USERNAME
-      valueFrom:
-        secretKeyRef:
-          name: db-credentials
-          key: username
-EOF
+# 1. Deploy pods with secrets
+kubectl apply -f pod-with-env.yaml
+kubectl apply -f pod-with-volume.yaml
+kubectl apply -f deployment.yaml
 
-# Create a pod with secrets mounted as volumes
-kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Pod
-metadata:
-  name: secret-vol-pod
-spec:
-  containers:
-  - name: myapp
-    image: nginx
-    volumeMounts:
-    - name: secret-volume
-      mountPath: "/etc/secrets"
-      readOnly: true
-  volumes:
-  - name: secret-volume
-    secret:
-      secretName: db-credentials
-EOF
+# 2. Verify secret mounting
+kubectl exec secret-vol-pod -- ls /etc/secrets
+kubectl exec secret-vol-pod -- cat /etc/secrets/username
+
+# 3. Check environment variables
+kubectl exec secret-env-pod -- env | grep DB_
+kubectl exec -it secret-env-pod -- sh -c 'echo $DB_PASSWORD'
+
+# 4. Update pod with new secret
+kubectl delete pod secret-env-pod
+kubectl apply -f pod-with-env.yaml
 ```
 
-### Working with Base64 Encoding
+### Base64 Operations
 
 ```bash
-# Encode values for YAML configuration
+# Encode values
 echo -n 'admin' | base64
 echo -n 'secretpassword' | base64
+echo -n 'db.example.com' | base64
+echo -n '3306' | base64
 
-# Decode secret values
+# Decode values
 echo 'YWRtaW4=' | base64 --decode
 echo 'c2VjcmV0cGFzc3dvcmQ=' | base64 --decode
+
+# Encode file content
+base64 -w 0 < tls.key > tls.key.base64
+base64 -w 0 < tls.crt > tls.crt.base64
+```
+
+### Secret Updates
+
+```bash
+# Update existing secret
+kubectl create secret generic db-credentials \
+    --from-literal=username=newadmin \
+    --from-literal=password=newpass \
+    -o yaml --dry-run=client | kubectl replace -f -
+
+# Patch specific fields
+kubectl patch secret db-credentials --type='json' -p='[{"op": "replace", "path": "/data/password", "value":"bmV3cGFzc3dvcmQ="}]'
 ```
 
 ## Troubleshooting
 
+### Common Issues
+
 ```bash
-# Check secret mounting in pods
-kubectl exec secret-vol-pod -- ls /etc/secrets
-
-# Verify environment variables
-kubectl exec secret-env-pod -- env | grep DB_
-
-# Check pod events for secret-related issues
+# Check pod status
+kubectl get pods
 kubectl describe pod secret-env-pod
-kubectl describe pod secret-vol-pod
 
-# Validate secret permissions
+# Check events
+kubectl get events --sort-by=.metadata.creationTimestamp
+
+# Check logs
+kubectl logs secret-env-pod
+kubectl logs -f deployment/secure-app
+
+# Check mount points
+kubectl exec secret-vol-pod -- mount | grep secrets
+```
+
+### Debugging
+
+```bash
+# Debug secret mounting
+kubectl debug secret-vol-pod -it --image=busybox
+
+# Check secret permissions
 kubectl auth can-i get secrets
 kubectl auth can-i create secrets
+kubectl auth can-i update secrets
+
+# Verify service account permissions
+kubectl auth can-i get secrets --as=system:serviceaccount:secure-ns:restricted-sa
 ```
 
-## Production Guidelines
+## Security
 
-### Security Best Practices
+### RBAC Management
 
 ```bash
-# Create namespace with encrypted secrets
+# Create namespace and configure RBAC
 kubectl create namespace secure-ns
 kubectl config set-context --current --namespace=secure-ns
+kubectl apply -f rbac.yaml
 
-# Apply RBAC policies
-kubectl apply -f - <<EOF
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: secret-reader
-rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["get", "list"]
-EOF
+# Verify RBAC permissions
+kubectl auth can-i get secrets --as=system:serviceaccount:secure-ns:restricted-sa
+kubectl auth can-i update secrets --as=system:serviceaccount:secure-ns:restricted-sa
 
-# Create service account with limited access
-kubectl create serviceaccount restricted-sa
-kubectl create rolebinding secret-reader-binding \
-    --role=secret-reader \
-    --serviceaccount=secure-ns:restricted-sa
+# List roles and bindings
+kubectl get roles
+kubectl get rolebindings
 ```
 
-### Cleanup Operations
+### Access Control
 
 ```bash
-# Remove secrets
-kubectl delete secret db-credentials
-kubectl delete secret tls-certs
+# Create service account
+kubectl create serviceaccount secret-admin
 
-# Remove pods using secrets
-kubectl delete pod secret-env-pod
-kubectl delete pod secret-vol-pod
+# Create role
+kubectl create role secret-manager \
+    --verb=get,list,watch,create,update \
+    --resource=secrets
 
-# Clean up RBAC resources
-kubectl delete role secret-reader
-kubectl delete rolebinding secret-reader-binding
-kubectl delete serviceaccount restricted-sa
+# Bind role to service account
+kubectl create rolebinding secret-admin-binding \
+    --role=secret-manager \
+    --serviceaccount=default:secret-admin
 ```
 
-## Learning Notes
+## Production Operations
 
-1. Always use `--from-literal` or `--from-file` for direct secret creation
-2. Implement RBAC to restrict secret access
-3. Use volume mounts for sensitive files
-4. Regularly rotate secrets in production
-5. Monitor secret usage through audit logs
+### Maintenance
+
+```bash
+# Rotate secrets
+kubectl create secret generic db-credentials \
+    --from-literal=username=admin \
+    --from-literal=password=newpassword \
+    -o yaml --dry-run=client | kubectl replace -f -
+
+# Update applications
+kubectl rollout restart deployment secure-app
+```
+
+### Backup
+
+```bash
+# Backup all secrets
+kubectl get secrets -A -o yaml > all-secrets-backup.yaml
+
+# Backup specific secret
+kubectl get secret db-credentials -o yaml > db-credentials-backup.yaml
+```
+
+### Cleanup
+
+```bash
+# Delete individual resources
+kubectl delete -f deployment.yaml
+kubectl delete -f pod-with-env.yaml
+kubectl delete -f pod-with-volume.yaml
+kubectl delete -f secret-config.yaml
+kubectl delete -f rbac.yaml
+
+# Delete all resources in namespace
+kubectl delete namespace secure-ns
+
+# Remove specific secrets
+kubectl delete secret db-credentials
+kubectl delete secret tls-certs
+```
+
+## Best Practices
+
+1. **Secret Naming Conventions**
+   - Use descriptive names
+   - Include environment/purpose
+   - Follow consistent patterns
+
+2. **Security Measures**
+   - Enable encryption at rest
+   - Use RBAC strictly
+   - Rotate secrets regularly
+   - Limit secret access
+
+3. **Monitoring**
+   - Track secret usage
+   - Monitor access patterns
+   - Audit secret changes
+   - Log suspicious activities
+
+4. **Maintenance**
+   - Regular secret rotation
+   - Backup procedures
+   - Access review
+   - Documentation updates
 
 ---
 
@@ -183,3 +302,5 @@ kubectl delete serviceaccount restricted-sa
 > ⚠️ **Warning**: Base64 encoding is not encryption. Always use additional security measures in production.
 
 > 📝 **Note**: Secret values are limited to 1MB in size.
+
+> 🔒 **Security**: Always follow the principle of least privilege when granting access to secrets.
