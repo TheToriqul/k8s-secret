@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: secure-app
+  namespace: secure-ns
 spec:
   replicas: 3
   selector:
@@ -12,25 +13,28 @@ spec:
       labels:
         app: secure-app
     spec:
+      serviceAccountName: restricted-sa
       containers:
       - name: secure-app
-        image: nginx
+        image: nginx:stable
+        ports:
+        - containerPort: 80
         env:
-        - name: DATABASE_HOST
+        - name: DB_USERNAME
           valueFrom:
             secretKeyRef:
-              name: my-db-secret
-              key: DB_Host
-        - name: DATABASE_USER
+              name: db-credentials
+              key: username
+        - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: my-db-secret
-              key: DB_User
-        - name: DATABASE_PASSWORD
+              name: db-credentials
+              key: password
+        - name: DB_HOST
           valueFrom:
             secretKeyRef:
-              name: my-db-secret
-              key: DB_Password
+              name: db-credentials
+              key: host
         volumeMounts:
         - name: secret-volume
           mountPath: "/etc/secrets"
@@ -38,4 +42,18 @@ spec:
       volumes:
       - name: secret-volume
         secret:
-          secretName: my-db-secret
+          secretName: db-credentials
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: secure-app-service
+  namespace: secure-ns
+spec:
+  selector:
+    app: secure-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
